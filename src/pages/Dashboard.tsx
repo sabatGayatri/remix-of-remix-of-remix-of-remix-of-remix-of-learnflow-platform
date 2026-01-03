@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import { 
   BookOpen, 
   Trophy, 
   Clock, 
   Target, 
-  TrendingUp, 
   Brain,
   CheckCircle2,
   ArrowRight,
@@ -13,16 +13,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-
-const weeklyData = [
-  { day: "Mon", problems: 5 },
-  { day: "Tue", problems: 8 },
-  { day: "Wed", problems: 3 },
-  { day: "Thu", problems: 12 },
-  { day: "Fri", problems: 7 },
-  { day: "Sat", problems: 15 },
-  { day: "Sun", problems: 10 },
-];
+import { Calendar } from "@/components/ui/calendar";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 const recentProblems = [
   { title: "Two Sum", domain: "DSA", difficulty: "Easy", completed: true },
@@ -37,8 +29,30 @@ const weakTopics = [
   { name: "System Design", score: 28, total: 35 },
 ];
 
+// Data for student progress pie chart
+const progressData = [
+  { name: "Completed", value: 127, color: "hsl(var(--primary))" },
+  { name: "In Progress", value: 23, color: "hsl(var(--accent))" },
+  { name: "Not Started", value: 50, color: "hsl(var(--muted))" },
+];
+
+// Data for average score pie chart
+const scoreData = [
+  { name: "Excellent (90%+)", value: 35, color: "hsl(142, 76%, 36%)" },
+  { name: "Good (70-89%)", value: 45, color: "hsl(var(--primary))" },
+  { name: "Average (50-69%)", value: 15, color: "hsl(48, 96%, 53%)" },
+  { name: "Below Avg (<50%)", value: 5, color: "hsl(0, 84%, 60%)" },
+];
+
+// Activity dates for calendar highlighting
+const activityDates = [
+  new Date(2026, 0, 1),
+  new Date(2026, 0, 2),
+  new Date(2026, 0, 3),
+];
+
 const Dashboard = () => {
-  const maxProblems = Math.max(...weeklyData.map(d => d.problems));
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   return (
     <div className="min-h-screen bg-background">
@@ -81,28 +95,32 @@ const Dashboard = () => {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Weekly Activity Chart */}
+            {/* Activity Calendar */}
             <div className="lg:col-span-2 p-6 rounded-2xl bg-card border border-border">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-semibold flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                  Weekly Activity
+                  <Clock className="w-5 h-5 text-primary" />
+                  Activity Calendar
                 </h2>
-                <span className="text-sm text-muted-foreground">60 problems this week</span>
+                <span className="text-sm text-muted-foreground">Track your daily activity</span>
               </div>
 
-              <div className="flex items-end justify-between h-40 gap-2">
-                {weeklyData.map((day, index) => (
-                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="w-full flex flex-col justify-end h-32">
-                      <div
-                        className="w-full rounded-t-lg progress-gradient transition-all duration-500 hover:opacity-80"
-                        style={{ height: `${(day.problems / maxProblems) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-muted-foreground">{day.day}</span>
-                  </div>
-                ))}
+              <div className="flex justify-center">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  modifiers={{
+                    activity: activityDates,
+                  }}
+                  modifiersStyles={{
+                    activity: {
+                      backgroundColor: "hsl(var(--primary) / 0.2)",
+                      borderRadius: "50%",
+                    },
+                  }}
+                  className="rounded-md border"
+                />
               </div>
             </div>
 
@@ -133,6 +151,86 @@ const Dashboard = () => {
                     <span className="font-medium text-green-500">78%</span>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Student Progress Pie Chart */}
+            <div className="p-6 rounded-2xl bg-card border border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="w-5 h-5 text-primary" />
+                <h2 className="font-semibold">Student Progress</h2>
+              </div>
+
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={progressData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {progressData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: "hsl(var(--card))", 
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px"
+                      }} 
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      formatter={(value) => <span className="text-xs text-foreground">{value}</span>}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Average Score Pie Chart */}
+            <div className="p-6 rounded-2xl bg-card border border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-primary" />
+                <h2 className="font-semibold">Average Score Distribution</h2>
+              </div>
+
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={scoreData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {scoreData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: "hsl(var(--card))", 
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px"
+                      }} 
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      formatter={(value) => <span className="text-xs text-foreground">{value}</span>}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
