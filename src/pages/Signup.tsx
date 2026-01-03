@@ -12,11 +12,12 @@ const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("learner");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { signup } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!name || !email || !password) {
@@ -37,7 +38,9 @@ const Signup = () => {
       return;
     }
 
-    const result = signup(name, email, password, role);
+    setIsSubmitting(true);
+    const result = await signup(name, email, password, role);
+    setIsSubmitting(false);
     
     if (result.success) {
       toast({
@@ -156,9 +159,9 @@ const Signup = () => {
             </p>
           </div>
 
-          <Button type="submit" variant="default" size="lg" className="w-full group">
-            Create {role === "instructor" ? "Instructor" : "Learner"} Account
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+          <Button type="submit" variant="default" size="lg" className="w-full group" disabled={isSubmitting}>
+            {isSubmitting ? "Creating account..." : `Create ${role === "instructor" ? "Instructor" : "Learner"} Account`}
+            {!isSubmitting && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />}
           </Button>
         </form>
 
