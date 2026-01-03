@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, Menu, X, Sun } from "lucide-react";
 import { useState } from "react";
+import GlobalSearch from "./GlobalSearch";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,7 +29,7 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-6">
             {navLinks.map((link) => (
               <Link
                 key={link.path}
@@ -42,6 +43,11 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
+          </div>
+
+          {/* Global Search */}
+          <div className="hidden md:block">
+            <GlobalSearch />
           </div>
 
           {/* Right side */}
@@ -69,6 +75,11 @@ const Navbar = () => {
         {isOpen && (
           <div className="md:hidden py-4 border-t border-border animate-fade-in">
             <div className="flex flex-col gap-2">
+              {/* Mobile Search */}
+              <div className="px-4 pb-4">
+                <GlobalSearch />
+              </div>
+              
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
