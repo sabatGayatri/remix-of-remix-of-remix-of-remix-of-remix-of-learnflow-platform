@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Upload,
   Plus,
@@ -12,6 +12,7 @@ import {
   Edit3,
   GripVertical,
   FileVideo,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { curriculumData, getDomain } from "@/data/curriculum";
+import { useVideos, Video as VideoType } from "@/hooks/useVideos";
+import { useToast } from "@/hooks/use-toast";
 
 interface Timestamp {
   id: number;
@@ -61,7 +64,7 @@ interface ContentManagementTabProps {
 }
 
 const ContentManagementTab = ({
-  uploadedVideos = [],
+  uploadedVideos: propVideos = [],
   onUploadVideo,
 }: ContentManagementTabProps) => {
   const [timestamps, setTimestamps] = useState<Timestamp[]>([
@@ -69,8 +72,20 @@ const ContentManagementTab = ({
   ]);
   const [selectedDomain, setSelectedDomain] = useState<string>("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("");
+  const [selectedTopic, setSelectedTopic] = useState<string>("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { videos, isLoading, fetchInstructorVideos, uploadVideo, deleteVideo, getVideoUrl } = useVideos();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchInstructorVideos();
+  }, [fetchInstructorVideos]);
 
   const addTimestamp = () => {
     setTimestamps([
@@ -97,6 +112,8 @@ const ContentManagementTab = ({
 
   const domain = selectedDomain ? getDomain(selectedDomain) : null;
   const difficulties = domain ? domain.difficulties.map((d) => d.id) : [];
+  const selectedDiff = domain?.difficulties.find(d => d.id === selectedDifficulty);
+  const topics = selectedDiff ? selectedDiff.topics.map((t) => t.id) : [];
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -115,6 +132,75 @@ const ContentManagementTab = ({
       setVideoFile(files[0]);
     }
   };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0 && files[0].type.startsWith("video/")) {
+      setVideoFile(files[0]);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!videoFile || !title || !selectedDomain || !selectedDifficulty || !selectedTopic) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill in all required fields and select a video",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    const result = await uploadVideo({
+      title,
+      description,
+      domain: selectedDomain,
+      topic: selectedTopic,
+      difficulty: selectedDifficulty,
+      file: videoFile,
+    });
+    setIsUploading(false);
+
+    if (result.success) {
+      toast({
+        title: "Video uploaded!",
+        description: "Your video has been uploaded successfully",
+      });
+      // Reset form
+      setTitle("");
+      setDescription("");
+      setVideoFile(null);
+      setSelectedDomain("");
+      setSelectedDifficulty("");
+      setSelectedTopic("");
+      setTimestamps([{ id: 1, time: "0:00", title: "Introduction", explanation: "" }]);
+    } else {
+      toast({
+        title: "Upload failed",
+        description: result.error,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteVideo = async (videoId: string) => {
+    const result = await deleteVideo(videoId);
+    if (result.success) {
+      toast({
+        title: "Video deleted",
+        description: "The video has been removed",
+      });
+    } else {
+      toast({
+        title: "Delete failed",
+        description: result.error,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Combine prop videos with database videos
+  const displayVideos = videos.length > 0 ? videos : propVideos;
 
   return (
     <div className="space-y-6">
@@ -169,7 +255,7 @@ const ContentManagementTab = ({
                   <p className="text-xs text-muted-foreground mb-3">
                     MP4, WebM up to 500MB
                   </p>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                     Browse Files
                   </Button>
                 </>
@@ -180,7 +266,12 @@ const ContentManagementTab = ({
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Video Title</Label>
-                <Input id="title" placeholder="e.g., Two Sum - Complete Solution" />
+                <Input 
+                  id="title" 
+                  placeholder="e.g., Two Sum - Complete Solution"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
               </div>
 
               <div className="space-y-2">
@@ -189,14 +280,16 @@ const ContentManagementTab = ({
                   id="description"
                   placeholder="Describe the problem being solved in this video..."
                   rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
 
               {/* Hierarchy Selection */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label>Domain</Label>
-                  <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+                  <Select value={selectedDomain} onValueChange={(v) => { setSelectedDomain(v); setSelectedDifficulty(""); setSelectedTopic(""); }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select Domain" />
                     </SelectTrigger>
@@ -214,7 +307,7 @@ const ContentManagementTab = ({
                   <Label>Difficulty</Label>
                   <Select
                     value={selectedDifficulty}
-                    onValueChange={setSelectedDifficulty}
+                    onValueChange={(v) => { setSelectedDifficulty(v); setSelectedTopic(""); }}
                     disabled={!selectedDomain}
                   >
                     <SelectTrigger>
@@ -229,12 +322,36 @@ const ContentManagementTab = ({
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Topic</Label>
+                  <Select
+                    value={selectedTopic}
+                    onValueChange={setSelectedTopic}
+                    disabled={!selectedDifficulty}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Topic" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {topics.map((topic) => (
+                        <SelectItem key={topic} value={topic}>
+                          {topic.charAt(0).toUpperCase() + topic.slice(1).replace(/-/g, ' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="time">Estimated Solving Time</Label>
-                <Input id="time" placeholder="e.g., 15 mins" />
-              </div>
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
 
               {/* Transcription */}
               <div className="space-y-2">
@@ -330,9 +447,18 @@ const ContentManagementTab = ({
               ))}
             </div>
 
-            <Button className="w-full mt-5">
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Video
+            <Button className="w-full mt-5" onClick={handleUpload} disabled={isUploading}>
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Video
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
@@ -347,9 +473,14 @@ const ContentManagementTab = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {uploadedVideos.length > 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12">
+              <Loader2 className="w-8 h-8 mx-auto animate-spin text-muted-foreground" />
+              <p className="text-muted-foreground mt-2">Loading videos...</p>
+            </div>
+          ) : displayVideos.length > 0 ? (
             <div className="space-y-3">
-              {uploadedVideos.map((video) => (
+              {displayVideos.map((video) => (
                 <div
                   key={video.id}
                   className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/30 hover:shadow-sm transition-all group"
@@ -361,7 +492,7 @@ const ContentManagementTab = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium truncate">{video.title}</h3>
-                      {video.hasTranscript && (
+                      {'hasTranscript' in video && video.hasTranscript && (
                         <Badge variant="secondary" className="text-xs flex-shrink-0">
                           <FileText className="w-3 h-3 mr-1" />
                           Transcribed
@@ -382,13 +513,15 @@ const ContentManagementTab = ({
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
-                        {video.duration}
+                        {'duration' in video ? video.duration : `${Math.floor((video as VideoType).duration_seconds || 0 / 60)}m`}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5" />
-                        {video.views} views
-                      </span>
-                      {video.doubts > 0 && (
+                      {'views' in video && (
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" />
+                          {video.views} views
+                        </span>
+                      )}
+                      {'doubts' in video && video.doubts > 0 && (
                         <span className="flex items-center gap-1 text-primary font-medium">
                           <MessageCircle className="w-3.5 h-3.5" />
                           {video.doubts} doubts
@@ -405,6 +538,7 @@ const ContentManagementTab = ({
                       variant="ghost"
                       size="icon"
                       className="text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDeleteVideo(video.id.toString())}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
