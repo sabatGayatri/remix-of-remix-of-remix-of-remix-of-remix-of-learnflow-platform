@@ -1,15 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { GraduationCap, Presentation, ArrowRight, Mail, Lock, User, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useAuth, UserRole } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { GraduationCap, Presentation, ArrowRight, ArrowLeft, Sparkles, Radar, BookOpen, BarChart3 } from "lucide-react";
+import { UserRole } from "@/hooks/useAuth";
 
-type Mode = "select" | "auth";
-type AuthTab = "login" | "signup";
+type Mode = "select" | "detail";
 
 interface RoleGatewayProps {
   initialRole?: UserRole | null;
@@ -30,50 +24,31 @@ const ROLE_META: Record<UserRole, { icon: typeof GraduationCap; title: string; d
   },
 };
 
+const ROLE_FEATURES: Record<UserRole, { icon: typeof Sparkles; label: string }[]> = {
+  learner: [
+    { icon: BookOpen, label: "Adaptive video lessons" },
+    { icon: Sparkles, label: "AI-powered doubt support" },
+    { icon: Radar, label: "Realtime progress signals" },
+  ],
+  instructor: [
+    { icon: Presentation, label: "Content publishing workflow" },
+    { icon: BarChart3, label: "Live learner analytics" },
+    { icon: Sparkles, label: "AI-assisted teaching tools" },
+  ],
+};
+
 const RoleGateway = ({ initialRole = null }: RoleGatewayProps) => {
   const [selected, setSelected] = useState<UserRole | null>(initialRole);
-  const [mode, setMode] = useState<Mode>(initialRole ? "auth" : "select");
-  const [tab, setTab] = useState<AuthTab>("login");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const { login, signup } = useAuth();
-  const { toast } = useToast();
-  const navigate = useNavigate();
+  const [mode, setMode] = useState<Mode>(initialRole ? "detail" : "select");
 
   const choose = (role: UserRole) => {
     setSelected(role);
-    setTimeout(() => setMode("auth"), 350);
+    setTimeout(() => setMode("detail"), 350);
   };
 
   const back = () => {
     setMode("select");
     setTimeout(() => setSelected(null), 250);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selected) return;
-    if (!email || !password || (tab === "signup" && !name)) {
-      toast({ title: "Missing info", description: "Please fill in all fields", variant: "destructive" });
-      return;
-    }
-    if (tab === "signup" && password.length < 8) {
-      toast({ title: "Weak password", description: "Use at least 8 characters", variant: "destructive" });
-      return;
-    }
-    setSubmitting(true);
-    const res = tab === "login"
-      ? await login(email, password, selected)
-      : await signup(name, email, password, selected);
-    setSubmitting(false);
-    if (res.success) {
-      toast({ title: tab === "login" ? "Welcome back" : "Account created", description: `Signed in as ${selected}` });
-      navigate(selected === "instructor" ? "/instructor" : "/domains");
-    } else {
-      toast({ title: "Authentication failed", description: res.error, variant: "destructive" });
-    }
   };
 
   return (
@@ -140,14 +115,14 @@ const RoleGateway = ({ initialRole = null }: RoleGatewayProps) => {
             </motion.div>
           )}
 
-          {mode === "auth" && selected && (
+          {mode === "detail" && selected && (
             <motion.div
-              key="auth"
+              key="detail"
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5 }}
-              className="max-w-md mx-auto"
+              className="max-w-3xl mx-auto"
             >
               <button
                 onClick={back}
@@ -156,79 +131,62 @@ const RoleGateway = ({ initialRole = null }: RoleGatewayProps) => {
                 <ArrowLeft className="w-4 h-4" /> Change role
               </button>
 
-              <div className="glass-panel rounded-3xl p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] flex items-center justify-center">
-                    {(() => { const Icon = ROLE_META[selected].icon; return <Icon className="w-5 h-5 text-white" />; })()}
-                  </div>
+              <div className="glass-panel rounded-3xl p-8 lg:p-10">
+                <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
                   <div>
-                    <h3 className="text-xl font-bold">{ROLE_META[selected].title}</h3>
-                    <p className="text-xs text-muted-foreground">{ROLE_META[selected].subtitle}</p>
-                  </div>
-                </div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] flex items-center justify-center">
+                        {(() => {
+                          const Icon = ROLE_META[selected].icon;
+                          return <Icon className="w-5 h-5 text-white" />;
+                        })()}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold">{ROLE_META[selected].title}</h3>
+                        <p className="text-xs text-muted-foreground">{ROLE_META[selected].subtitle}</p>
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg mb-6">
-                  {(["login", "signup"] as AuthTab[]).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTab(t)}
-                      className={`py-2 text-sm font-medium rounded-md transition-all ${
-                        tab === t ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
-                      }`}
-                    >
-                      {t === "login" ? "Sign In" : "Create Account"}
-                    </button>
-                  ))}
-                </div>
+                    <p className="text-lg leading-8 text-muted-foreground mb-8 max-w-xl">
+                      {selected === "learner"
+                        ? "A guided path through video lessons, AI support, challenge-solving, and measurable mastery."
+                        : "A command center for publishing lessons, monitoring student activity, and steering outcomes in real time."}
+                    </p>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <AnimatePresence>
-                    {tab === "signup" && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="space-y-2 overflow-hidden"
-                      >
-                        <Label htmlFor="rg-name">Full name</Label>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <Input id="rg-name" value={name} onChange={(e) => setName(e.target.value)} className="pl-10 h-11 bg-background/50" placeholder="Ada Lovelace" />
+                    <div className="grid sm:grid-cols-3 gap-3">
+                      {ROLE_FEATURES[selected].map(({ icon: Icon, label }) => (
+                        <div key={label} className="rounded-2xl border border-border/60 bg-background/30 p-4">
+                          <Icon className="w-5 h-5 mb-3 text-[hsl(var(--neon-cyan))]" />
+                          <p className="text-sm text-foreground/90">{label}</p>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="rg-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input id="rg-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10 h-11 bg-background/50" placeholder="you@example.com" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rg-pw">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input id="rg-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 h-11 bg-background/50" placeholder="••••••••" />
+                      ))}
                     </div>
                   </div>
 
-                  <Button
-                    type="submit"
-                    size="lg"
-                    disabled={submitting}
-                    className="w-full bg-gradient-to-r from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] text-white hover:opacity-90 border-0"
-                  >
-                    {submitting
-                      ? "Please wait…"
-                      : tab === "login"
-                        ? `Enter as ${ROLE_META[selected].title}`
-                        : `Create ${ROLE_META[selected].title} account`}
-                    {!submitting && <ArrowRight className="w-4 h-4" />}
-                  </Button>
-                </form>
+                  <div className="rounded-3xl border border-border/60 bg-background/35 p-6">
+                    <p className="text-xs uppercase tracking-[0.24em] text-[hsl(var(--neon-cyan))] mb-4">Experience preview</p>
+                    <div className="space-y-4">
+                      <div className="rounded-2xl border border-border/60 bg-background/40 p-4">
+                        <p className="text-sm font-medium mb-1">
+                          {selected === "learner" ? "Learning flow" : "Teaching flow"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {selected === "learner"
+                            ? "Discover a topic, watch the concept, solve a related question, and review progress instantly."
+                            : "Upload a lesson, link assessments, watch engagement live, and refine the next release."}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-border/60 bg-background/40 p-4">
+                        <p className="text-sm font-medium mb-1">Current status</p>
+                        <p className="text-sm text-muted-foreground">Authentication is temporarily disabled, so this landing page is now presentation-only.</p>
+                      </div>
+                    </div>
+                    <div className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-[hsl(var(--neon-cyan))]">
+                      Explore the EDUSOLVE experience
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
